@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Health Dashboard</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .hidden { display: none; }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        body {
+            font-family: Arial, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .card:hover {
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+            transform: translateY(-5px);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .debug-console {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            width: 350px;
+            max-height: 250px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.85);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+        .debug-console-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .dark-mode {
+            background-color: #343a40;
+            color: #f8f9fa;
+        }
+        .dark-mode .card {
+            background-color: #495057;
+            color: #f8f9fa;
+        }
+        .dark-mode .navbar {
+            background-color: #212529 !important;
+        }
+        .dark-mode .system-info {
+            background-color: #495057;
+            color: #f8f9fa;
+        }
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-left: 8px;
+        }
+        .status-connected { background-color: #28a745; }
+        .status-disconnected { background-color: #dc3545; }
+        .progress-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        .system-info {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .system-info i {
+            margin-right: 8px;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div id="splash" class="container text-center mt-5 fade-in">
+        <h1 class="display-4">Server Health Dashboard</h1>
+        <p class="lead">Monitor your server's performance in real-time</p>
+        <button id="startBtn" class="btn btn-primary btn-lg mt-3">Get Started</button>
+    </div>
+
+    <!-- Login Section -->
+    <div id="login" class="container mt-5 hidden">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title text-center">Login</h2>
+                        <form id="loginForm">
+                            <div class="mb-3">
+                                <label for="loginUsername" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="loginUsername" placeholder="Enter username" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="loginPassword" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="loginPassword" placeholder="Enter password" required>
+                            </div>
+                            <button type="button" class="btn btn-primary w-100" onclick="handleLogin()">Login</button>
+                        </form>
+                        <p class="mt-3 text-center">
+                            Don't have an account? <a href="#" id="toRegister">Register</a> | 
+                            <a href="#" id="toForgotPassword">Forgot Password?</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registration Section -->
+    <div id="register" class="container mt-5 hidden">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title text-center">Register</h2>
+                        <form id="registerForm">
+                            <div class="mb-3">
+                                <label for="registerUsername" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="registerUsername" placeholder="Choose a username" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="registerPassword" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="registerPassword" placeholder="Choose a password" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="confirmPassword" class="form-label">Confirm Password</label>
+                                <input type="password" class="form-control" id="confirmPassword" placeholder="Confirm your password" required>
+                            </div>
+                            <button type="button" class="btn btn-primary w-100" onclick="handleRegister()">Register</button>
+                        </form>
+                        <p class="mt-3 text-center">Already have an account? <a href="#" id="toLogin">Login</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div class="modal fade" id="forgotPasswordModal" tabindex="-1" aria-labelledby="forgotPasswordModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="forgotPasswordModalLabel">Reset Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="forgotPasswordForm">
+                        <div class="mb-3">
+                            <label for="forgotUsername" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="forgotUsername" placeholder="Enter your username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="newPassword" placeholder="Enter new password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirmNewPassword" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirmNewPassword" placeholder="Confirm new password" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="handleForgotPassword()">Reset Password</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Section -->
+    <div id="dashboard" class="container mt-5 hidden">
+        <!-- System Info -->
+        <div id="systemInfo" class="system-info">
+            <i class="bi bi-pc-display"></i>
+            <span>System: <span id="systemName">Loading...</span></span>
+        </div>
+
+        <!-- Navigation Bar -->
+        <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
+            <a class="navbar-brand" href="#">Server Dashboard</a>
+            <span id="statusIndicator" class="status-indicator status-disconnected" data-bs-toggle="tooltip" title="Server Disconnected"></span>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="settings"><i class="bi bi-gear"></i> Settings</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="toggleDebug"><i class="bi bi-bug"></i> Debug</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="toggleTheme"><i class="bi bi-moon"></i> Toggle Theme</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="logout"><i class="bi bi-box-arrow-right"></i> Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <h2 class="mb-4">🖥 Server Health Monitor</h2>
+        <p id="lastUpdated" class="text-muted mb-3">Last updated: never</p>
+        <div id="alerts" class="mb-3"></div>
+
+        <!-- Server Health Metrics -->
+        <div class="row">
+            <div class="col-md-3 mb-4">
+                <div class="card text-center" data-bs-toggle="tooltip" data-bs-html="true" title="CPU Usage<br>Click for details" onclick="showDetail('CPU', document.getElementById('cpuProgress').innerText)">
+                    <div class="card-body">
+                        <i class="bi bi-cpu" style="font-size: 2rem; color: #007bff;"></i>
+                        <h5 class="card-title">CPU Usage</h5>
+                        <div class="progress">
+                            <div id="cpuProgress" class="progress-bar bg-primary" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                        </div>
+                        <span id="cpuBadge" class="badge bg-danger hidden mt-2">High</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="card text-center" data-bs-toggle="tooltip" data-bs-html="true" title="Memory Usage<br>Click for details" onclick="showDetail('Memory', document.getElementById('memProgress').innerText)">
+                    <div class="card-body">
+                        <i class="bi bi-memory" style="font-size: 2rem; color: #28a745;"></i>
+                        <h5 class="card-title">Memory Usage</h5>
+                        <div class="progress">
+                            <div id="memProgress" class="progress-bar bg-success" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                        </div>
+                        <span id="memBadge" class="badge bg-danger hidden mt-2">High</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="card text-center" data-bs-toggle="tooltip" data-bs-html="true" title="Disk Usage<br>Click for details" onclick="showDetail('Disk', document.getElementById('diskProgress').innerText)">
+                    <div class="card-body">
+                        <i class="bi bi-hdd" style="font-size: 2rem; color: #ffc107;"></i>
+                        <h5 class="card-title">Disk Usage</h5>
+                        <div class="progress">
+                            <div id="diskProgress" class="progress-bar bg-warning" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                        </div>
+                        <span id="diskBadge" class="badge bg-danger hidden mt-2">High</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="card text-center" data-bs-toggle="tooltip" data-bs-html="true" title="Temperature<br>Click for details" onclick="showDetail('Temperature', document.getElementById('tempProgress').innerText)">
+                    <div class="card-body">
+                        <i class="bi bi-thermometer" style="font-size: 2rem; color: #dc3545;"></i>
+                        <h5 class="card-title">Temperature</h5>
+                        <div class="progress">
+                            <div id="tempProgress" class="progress-bar bg-danger" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="80">0°C</div>
+                        </div>
+                        <span id="tempBadge" class="badge bg-danger hidden mt-2">High</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CPU Usage Chart -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Server Metrics Over Time</h5>
+                <canvas id="cpuChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detailModalLabel">Metric Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="detailModalBody">
+                    <!-- Dynamic content -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="settingsModalLabel">Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div class="mb-3">
+                            <label for="cpuThreshold" class="form-label">CPU Alert Threshold (%)</label>
+                            <input type="number" class="form-control" id="cpuThreshold" value="80" min="0" max="100">
+                        </div>
+                        <div class="mb-3">
+                            <label for="memoryThreshold" class="form-label">Memory Alert Threshold (%)</label>
+                            <input type="number" class="form-control" id="memoryThreshold" value="80" min="0" max="100">
+                        </div>
+                        <div class="mb-3">
+                            <label for="diskThreshold" class="form-label">Disk Alert Threshold (%)</label>
+                            <input type="number" class="form-control" id="diskThreshold" value="80" min="0" max="100">
+                        </div>
+                        <div class="mb-3">
+                            <label for="tempThreshold" class="form-label">Temperature Alert Threshold (°C)</label>
+                            <input type="number" class="form-control" id="tempThreshold" value="60" min="0" max="100">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="saveSettings()">Save changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Debug Console -->
+    <div id="debugConsole" class="debug-console">
+        <div class="debug-console-header">
+            <span>Debug Console</span>
+            <button class="btn btn-sm btn-danger" onclick="clearDebugConsole()">Clear</button>
+        </div>
+        <div id="debugConsoleContent"></div>
+    </div>
+
+    <script>
+        // Initialize tooltips
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+
+        // Section management
+        function showSection(sectionId) {
+            const sections = ['splash', 'login', 'register', 'dashboard'];
+            sections.forEach(id => {
+                const section = document.getElementById(id);
+                if (id === sectionId) {
+                    section.classList.remove('hidden');
+                    section.classList.add('fade-in');
+                } else {
+                    section.classList.add('hidden');
+                    section.classList.remove('fade-in');
+                }
+            });
+        }
+
+        // Navigation event listeners
+        document.getElementById('startBtn').addEventListener('click', () => showSection('login'));
+        document.getElementById('toRegister').addEventListener('click', (e) => {
+            e.preventDefault();
+            showSection('register');
+        });
+        document.getElementById('toLogin').addEventListener('click', (e) => {
+            e.preventDefault();
+            showSection('login');
+        });
+        document.getElementById('toForgotPassword').addEventListener('click', (e) => {
+            e.preventDefault();
+            const modal = new bootstrap.Modal(document.getElementById('forgotPasswordModal'));
+            modal.show();
+        });
+        document.getElementById('logout').addEventListener('click', (e) => {
+            e.preventDefault();
+            stopMonitoring();
+            showSection('login');
+            logDebug('User logged out');
+        });
+        document.getElementById('toggleDebug').addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('debugConsole').classList.toggle('hidden');
+        });
+        document.getElementById('settings').addEventListener('click', (e) => {
+            e.preventDefault();
+            const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
+            modal.show();
+        });
+
+        // Theme toggle
+        document.getElementById('toggleTheme').addEventListener('click', (e) => {
+            e.preventDefault();
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark-mode');
+        }
+
+        // User management (client-side, not secure for production)
+        function simpleHash(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash |= 0;
+            }
+            return hash;
+        }
+
+        function handleRegister() {
+            const username = document.getElementById('registerUsername').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (username.length < 3 || password.length < 6) {
+                alert('Username must be at least 3 characters and password at least 6 characters.');
+                return;
+            }
+            if (password !== confirmPassword) {
+                alert('Passwords do not match.');
+                return;
+            }
+
+            let users = JSON.parse(localStorage.getItem('users') || '[]');
+            if (users.some(user => user.username === username)) {
+                alert('Username already exists.');
+                return;
+            }
+
+            users.push({ username, password: simpleHash(password) });
+            localStorage.setItem('users', JSON.stringify(users));
+            logDebug(`User ${username} registered`);
+            showSection('login');
+        }
+
+        function handleLogin() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const user = users.find(u => u.username === username && u.password === simpleHash(password));
+
+            if (user) {
+                logDebug(`User ${username} logged in`);
+                showSection('dashboard');
+                startMonitoring();
+                updateSystemName();
+            } else {
+                alert('Invalid username or password.');
+            }
+        }
+
+        function handleForgotPassword() {
+            const username = document.getElementById('forgotUsername').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+
+            if (username.length < 3 || newPassword.length < 6) {
+                alert('Username must be at least 3 characters and password at least 6 characters.');
+                logDebug('Password reset failed: Invalid input', 'error');
+                return;
+            }
+            if (newPassword !== confirmNewPassword) {
+                alert('New passwords do not match.');
+                logDebug('Password reset failed: Passwords do not match', 'error');
+                return;
+            }
+
+            let users = JSON.parse(localStorage.getItem('users') || '[]');
+            const userIndex = users.findIndex(u => u.username === username);
+
+            if (userIndex === -1) {
+                alert('Username not found.');
+                logDebug(`Password reset failed: Username ${username} not found`, 'error');
+                return;
+            }
+
+            users[userIndex].password = simpleHash(newPassword);
+            localStorage.setItem('users', JSON.stringify(users));
+            alert('Password reset successfully. You can now log in with your new password.');
+            logDebug(`Password reset for user ${username}`);
+            const modal = bootstrap.Modal.getInstance(document.getElementById('forgotPasswordModal'));
+            modal.hide();
+            showSection('login');
+        }
+
+        // System name handling
+        function getSystemName() {
+            // Mock system name for demonstration (in production, fetch from server or API)
+            const mockSystemName = "Dell XPS 13";
+            
+            // Alternative: Parse navigator.userAgent for basic info
+            const userAgent = navigator.userAgent;
+            let systemInfo = "Unknown System";
+            if (userAgent.includes("Windows")) systemInfo = "Windows PC";
+            else if (userAgent.includes("Macintosh")) systemInfo = "Mac";
+            else if (userAgent.includes("Linux")) systemInfo = "Linux PC";
+
+            logDebug(`System name fetched: ${mockSystemName} (UserAgent: ${systemInfo})`);
+            return mockSystemName; // Use mock name for consistency
+        }
+
+        function updateSystemName() {
+            const systemNameElement = document.getElementById('systemName');
+            systemNameElement.textContent = getSystemName();
+        }
+
+        // WebSocket and data handling
+        let ws;
+        let cpuData = [];
+        let memData = [];
+        let diskData = [];
+        let tempData = [];
+        let timeLabels = [];
+        let cpuChart;
+
+        function initChart() {
+            const ctx = document.getElementById('cpuChart').getContext('2d');
+            cpuChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timeLabels,
+                    datasets: [
+                        { label: 'CPU (%)', data: cpuData, borderColor: '#007bff', backgroundColor: 'rgba(0, 123, 255, 0.1)', fill: true, tension: 0.4 },
+                        { label: 'Memory (%)', data: memData, borderColor: '#28a745', backgroundColor: 'rgba(40, 167, 69, 0.1)', fill: true, tension: 0.4 },
+                        { label: 'Disk (%)', data: diskData, borderColor: '#ffc107', backgroundColor: 'rgba(255, 193, 7, 0.1)', fill: true, tension: 0.4 },
+                        { label: 'Temp (°C)', data: tempData, borderColor: '#dc3545', backgroundColor: 'rgba(220, 53, 69, 0.1)', fill: true, tension: 0.4, yAxisID: 'y1' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { tooltip: { mode: 'index', intersect: false } },
+                    scales: {
+                        y: { min: 0, max: 100, title: { display: true, text: 'Usage (%)' } },
+                        y1: { position: 'right', min: 0, max: 100, title: { display: true, text: 'Temp (°C)' }, grid: { drawOnChartArea: false } },
+                        x: { title: { display: true, text: 'Time' } }
+                    }
+                }
+            });
+        }
+
+        function startMonitoring() {
+            // Use mock data since no real WebSocket server is provided
+            setInterval(() => {
+                const data = generateMockData();
+                updateDashboard(data);
+            }, 2000);
+            logDebug('Monitoring started with mock data');
+            updateStatus(true);
+            if (!cpuChart) initChart();
+        }
+
+        function stopMonitoring() {
+            // Normally close WebSocket here; using mock data for this example
+            logDebug('Monitoring stopped');
+            updateStatus(false);
+        }
+
+        function generateMockData() {
+            return {
+                cpu: Math.floor(Math.random() * 100),
+                memory: Math.floor(Math.random() * 100),
+                disk: Math.floor(Math.random() * 100),
+                temperature: Math.floor(Math.random() * 50) + 30
+            };
+        }
+
+        function updateDashboard(data) {
+            const cpuProgress = document.getElementById('cpuProgress');
+            const memProgress = document.getElementById('memProgress');
+            const diskProgress = document.getElementById('diskProgress');
+            const tempProgress = document.getElementById('tempProgress');
+
+            cpuProgress.style.width = `${data.cpu}%`;
+            cpuProgress.textContent = `${data.cpu}%`;
+            memProgress.style.width = `${data.memory}%`;
+            memProgress.textContent = `${data.memory}%`;
+            diskProgress.style.width = `${data.disk}%`;
+            diskProgress.textContent = `${data.disk}%`;
+            tempProgress.style.width = `${(data.temperature / 80) * 100}%`;
+            tempProgress.textContent = `${data.temperature}°C`;
+
+            document.getElementById('lastUpdated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+
+            // Update badges
+            const thresholds = {
+                cpu: localStorage.getItem('cpuThreshold') || 80,
+                memory: localStorage.getItem('memoryThreshold') || 80,
+                disk: localStorage.getItem('diskThreshold') || 80,
+                temp: localStorage.getItem('tempThreshold') || 60
+            };
+            document.getElementById('cpuBadge').classList.toggle('hidden', data.cpu <= thresholds.cpu);
+            document.getElementById('memBadge').classList.toggle('hidden', data.memory <= thresholds.memory);
+            document.getElementById('diskBadge').classList.toggle('hidden', data.disk <= thresholds.disk);
+            document.getElementById('tempBadge').classList.toggle('hidden', data.temperature <= thresholds.temp);
+
+            // Update alerts
+            const alertsDiv = document.getElementById('alerts');
+            alertsDiv.innerHTML = '';
+            if (data.cpu > thresholds.cpu) alertsDiv.innerHTML += `<div class="alert alert-danger">High CPU Usage: ${data.cpu}%</div>`;
+            if (data.memory > thresholds.memory) alertsDiv.innerHTML += `<div class="alert alert-danger">High Memory Usage: ${data.memory}%</div>`;
+            if (data.disk > thresholds.disk) alertsDiv.innerHTML += `<div class="alert alert-danger">High Disk Usage: ${data.disk}%</div>`;
+            if (data.temperature > thresholds.temp) alertsDiv.innerHTML += `<div class="alert alert-danger">High Temperature: ${data.temperature}°C</div>`;
+            
+            // Update chart
+            const time = new Date().toLocaleTimeString();
+            if (timeLabels.length >= 20) {
+                timeLabels.shift();
+                cpuData.shift();
+                memData.shift();
+                diskData.shift();
+                tempData.shift();
+            }
+            timeLabels.push(time);
+            cpuData.push(data.cpu);
+            memData.push(data.memory);
+            diskData.push(data.disk);
+            tempData.push(data.temperature);
+            cpuChart.update();
+        }
+
+        function updateStatus(connected) {
+            const indicator = document.getElementById('statusIndicator');
+            indicator.classList.toggle('status-connected', connected);
+            indicator.classList.toggle('status-disconnected', !connected);
+            indicator.setAttribute('title', connected ? 'Server Connected' : 'Server Disconnected');
+            bootstrap.Tooltip.getInstance(indicator)?.dispose();
+            new bootstrap.Tooltip(indicator);
+        }
+
+        // Detail modal
+        function showDetail(metric, value) {
+            document.getElementById('detailModalLabel').textContent = `${metric} Details`;
+            document.getElementById('detailModalBody').textContent = `Current ${metric}: ${value}`;
+            const modal = new bootstrap.Modal(document.getElementById('detailModal'));
+            modal.show();
+        }
+
+        // Settings
+        function saveSettings() {
+            localStorage.setItem('cpuThreshold', document.getElementById('cpuThreshold').value);
+            localStorage.setItem('memoryThreshold', document.getElementById('memoryThreshold').value);
+            localStorage.setItem('diskThreshold', document.getElementById('diskThreshold').value);
+            localStorage.setItem('tempThreshold', document.getElementById('tempThreshold').value);
+            const modal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+            modal.hide();
+            logDebug('Settings saved');
+        }
+
+        // Debug console
+        function logDebug(message, type = 'info') {
+            const consoleDiv = document.getElementById('debugConsoleContent');
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            if (type === 'error') logEntry.style.color = 'red';
+            else if (type === 'warning') logEntry.style.color = 'yellow';
+            consoleDiv.appendChild(logEntry);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        function clearDebugConsole() {
+            document.getElementById('debugConsoleContent').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
